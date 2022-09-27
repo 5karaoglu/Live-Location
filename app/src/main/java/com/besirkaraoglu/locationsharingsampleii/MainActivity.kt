@@ -1,30 +1,75 @@
 package com.besirkaraoglu.locationsharingsampleii
 
 import android.Manifest
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Looper
 import android.util.Log
 import androidx.core.app.ActivityCompat
 import com.huawei.hmf.tasks.OnFailureListener
 import com.huawei.hmf.tasks.OnSuccessListener
-import com.huawei.hms.location.FusedLocationProviderClient
-import com.huawei.hms.location.LocationRequest
-import com.huawei.hms.location.LocationServices
-import com.huawei.hms.location.LocationSettingsRequest
+import com.huawei.hms.location.*
 
 class MainActivity : AppCompatActivity() {
     val TAG = "MainActivity"
 
     private lateinit var mLocationRequest: LocationRequest
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
+    private lateinit var builder: Notification.Builder
+    private lateinit var mNotification: Notification
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         checkPermissions()
         checkLocationSettings()
+        initFusedLocation()
+        enableBackgroundNotification()
+        requestLocationUpdates()
+    }
+
+    private fun stopRequestLocationUpdates(){
+        fusedLocationProviderClient.disableBackgroundLocation()
+    }
+
+    private fun requestLocationUpdates() {
+        val mLocationCallback: LocationCallback
+        mLocationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                Log.d(TAG, "onLocationResult: $locationResult")
+            }
+        }
+        fusedLocationProviderClient.requestLocationUpdates(mLocationRequest, mLocationCallback, Looper.getMainLooper())
+            .addOnSuccessListener {
+                Log.d(TAG, "requestLocationUpdates: Success! $it")
+            }
+            .addOnFailureListener {
+                Log.d(TAG, "requestLocationUpdates: Failed! ${it.cause}, ${it.message}")
+            }
+    }
+
+    private fun enableBackgroundNotification(){
+        var notificationId = 1
+        builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val notificationManager =
+                this.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            val channelId = this.packageName
+            val notificationChannel =
+                NotificationChannel(channelId, "LOCATION", NotificationManager.IMPORTANCE_LOW)
+            notificationManager.createNotificationChannel(notificationChannel)
+            Notification.Builder(this, channelId)
+        } else {
+            Notification.Builder(this)
+        }
+        mNotification =
+            builder.build()
+        fusedLocationProviderClient.enableBackgroundLocation(notificationId,mNotification)
     }
 
     private fun initFusedLocation(){
@@ -97,5 +142,10 @@ class MainActivity : AppCompatActivity() {
                 ActivityCompat.requestPermissions(this, strings, 2)
             }
         }
+    }
+
+    override fun onDestroy() {
+        stopRequestLocationUpdates()
+        super.onDestroy()
     }
 }
