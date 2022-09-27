@@ -17,10 +17,27 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        release {
+            // Signing certificate.
+            storeFile file("lssiikey.jks")
+            // Key store password.
+            storePassword "123123"
+            // Alias.
+            keyAlias "key0"
+            // Key password.
+            keyPassword "123123"
+            v2SigningEnabled true
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+        debug {
+            signingConfig signingConfigs.release
         }
     }
     compileOptions {
@@ -44,4 +61,7 @@ dependencies {
 
     //Location Kit
     implementation 'com.huawei.hms:location:6.4.0.300'
+
+    //Map Kit
+    implementation 'com.huawei.hms:maps:6.6.1.301'
 }

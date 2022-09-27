@@ -11,30 +11,89 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Looper
 import android.util.Log
+import android.view.View
+import android.widget.Button
+import android.widget.EditText
 import androidx.core.app.ActivityCompat
 import com.huawei.hmf.tasks.OnFailureListener
 import com.huawei.hmf.tasks.OnSuccessListener
 import com.huawei.hms.location.*
+import com.huawei.hms.maps.*
+import com.huawei.hms.maps.model.LatLng
+import com.huawei.hms.maps.model.Marker
+import com.huawei.hms.maps.model.MarkerOptions
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     val TAG = "MainActivity"
+
+    private lateinit var buttonShare: Button
+    private lateinit var buttonStop: Button
+    private lateinit var etName: EditText
 
     private lateinit var mLocationRequest: LocationRequest
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private lateinit var builder: Notification.Builder
     private lateinit var mNotification: Notification
+    private lateinit var lastLocation: LatLng
+
+    private lateinit var mMapView: MapView
+    private var mMarker: Marker? = null
+    private lateinit var hMap: HuaweiMap
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        initListeners()
+
+        initMapKit(savedInstanceState)
+
         checkPermissions()
         checkLocationSettings()
         initFusedLocation()
-        enableBackgroundNotification()
-        requestLocationUpdates()
     }
 
-    private fun stopRequestLocationUpdates(){
+    private fun initListeners() {
+        buttonShare = findViewById(R.id.buttonShare)
+        buttonStop = findViewById(R.id.buttonStop)
+        etName = findViewById(R.id.etName)
+
+        buttonShare.setOnClickListener {
+            enableBackgroundNotification()
+            requestLocationUpdates()
+        }
+        buttonStop.setOnClickListener {
+            mMarker?.remove()
+        }
+    }
+
+    private fun setCameraPos(latLng: LatLng) {
+        val cameraUpdate = CameraUpdateFactory.newLatLng(latLng)
+        hMap.animateCamera(cameraUpdate)
+    }
+
+    fun addMarker(title: String, snippet: String, latLng: LatLng) {
+        if (null != mMarker) {
+            mMarker?.remove()
+        }
+        val options = MarkerOptions()
+            .position(latLng)
+            .title("Hello Huawei Map")
+            .snippet("This is a snippet!")
+        mMarker = hMap.addMarker(options)
+    }
+
+    private fun initMapKit(savedInstanceState: Bundle?) {
+        mMapView = findViewById(R.id.mapview_mapviewdemo)
+        var mapViewBundle: Bundle? = null
+        if (savedInstanceState != null) {
+            mapViewBundle = savedInstanceState.getBundle("MapViewBundleKey")
+        }
+        mMapView.onCreate(mapViewBundle)
+        mMapView.getMapAsync(this)
+    }
+
+    private fun stopRequestLocationUpdates() {
         fusedLocationProviderClient.disableBackgroundLocation()
     }
 
@@ -42,10 +101,31 @@ class MainActivity : AppCompatActivity() {
         val mLocationCallback: LocationCallback
         mLocationCallback = object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
-                Log.d(TAG, "onLocationResult: $locationResult")
+                Log.d(
+                    TAG,
+                    "onLocationResult: ${locationResult.lastLocation.latitude}, ${locationResult.lastLocation.longitude}"
+                )
+                Log.d(TAG, "onLocationResult: ${locationResult.locations}")
+                val latLng = LatLng(
+                    locationResult.lastLocation.latitude,
+                    locationResult.lastLocation.longitude
+                )
+                if (this@MainActivity::lastLocation.isInitialized && lastLocation != latLng) {
+                    lastLocation = latLng
+                    addMarker("", "", latLng)
+                    setCameraPos(latLng)
+                } else {
+                    lastLocation = latLng
+                    addMarker("", "", latLng)
+                    setCameraPos(latLng)
+                }
             }
         }
-        fusedLocationProviderClient.requestLocationUpdates(mLocationRequest, mLocationCallback, Looper.getMainLooper())
+        fusedLocationProviderClient.requestLocationUpdates(
+            mLocationRequest,
+            mLocationCallback,
+            Looper.getMainLooper()
+        )
             .addOnSuccessListener {
                 Log.d(TAG, "requestLocationUpdates: Success! $it")
             }
@@ -54,7 +134,7 @@ class MainActivity : AppCompatActivity() {
             }
     }
 
-    private fun enableBackgroundNotification(){
+    private fun enableBackgroundNotification() {
         var notificationId = 1
         builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager =
@@ -69,14 +149,14 @@ class MainActivity : AppCompatActivity() {
         }
         mNotification =
             builder.build()
-        fusedLocationProviderClient.enableBackgroundLocation(notificationId,mNotification)
+        fusedLocationProviderClient.enableBackgroundLocation(notificationId, mNotification)
     }
 
-    private fun initFusedLocation(){
+    private fun initFusedLocation() {
         fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this)
     }
 
-    private fun checkLocationSettings(){
+    private fun checkLocationSettings() {
         var settingsClient = LocationServices.getSettingsClient(this)
         val builder = LocationSettingsRequest.Builder()
         mLocationRequest = LocationRequest()
@@ -102,7 +182,7 @@ class MainActivity : AppCompatActivity() {
             })
     }
 
-    private fun checkPermissions(){
+    private fun checkPermissions() {
         // Dynamically apply for required permissions if the API level is 28 or smaller.
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
             Log.i(TAG, "android sdk <= 28 Q")
@@ -144,8 +224,53 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onMapReady(p0: HuaweiMap?) {
+        Log.d(TAG, "onMapReady: Map ready")
+        if (p0 != null) {
+            hMap = p0
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+
+        var mapViewBundle: Bundle? = outState.getBundle("MapViewBundleKey")
+        if (mapViewBundle == null) {
+            mapViewBundle = Bundle()
+            outState.putBundle("MapViewBundleKey", mapViewBundle)
+        }
+
+        mMapView.onSaveInstanceState(mapViewBundle)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        mMapView.onStart()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        mMapView.onResume()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        mMapView.onPause()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        mMapView.onStop()
+    }
+
     override fun onDestroy() {
-        stopRequestLocationUpdates()
         super.onDestroy()
+        stopRequestLocationUpdates()
+        mMapView.onDestroy()
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        mMapView.onLowMemory()
     }
 }
