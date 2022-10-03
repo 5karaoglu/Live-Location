@@ -20,7 +20,7 @@
 
     <application
         android:allowBackup="true"
-        android:name=".LSSApplication"
+        android:name=".core.LSSApplication"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -30,7 +30,7 @@
         android:theme="@style/Theme.LocationSharingSampleII"
         tools:targetApi="31">
         <activity
-            android:name=".MainActivity"
+            android:name=".ui.login.LoginActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -39,9 +39,23 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".ui.main.MainActivity"
+            android:exported="true">
+        </activity>
+
         <service
             android:name="com.huawei.location.service.BackGroundService"
             android:foregroundServiceType="location" />
+
+        <receiver
+            android:name=".data.LSSReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.huawei.hmssample.location.LocationBroadcastReceiver.ACTION_PROCESS_LOCATION" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

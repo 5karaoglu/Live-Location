@@ -1,20 +1,30 @@
-package com.besirkaraoglu.locationsharingsampleii
+package com.besirkaraoglu.locationsharingsampleii.ui.main
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Looper
 import android.util.Log
-import android.view.View
 import android.widget.Button
 import android.widget.EditText
+import androidx.activity.viewModels
 import androidx.core.app.ActivityCompat
+import com.besirkaraoglu.locationsharingsampleii.CloudDbWrapper
+import com.besirkaraoglu.locationsharingsampleii.R
+import com.besirkaraoglu.locationsharingsampleii.data.LSSReceiver
+import com.besirkaraoglu.locationsharingsampleii.util.LocationLog
+import com.besirkaraoglu.locationsharingsampleii.util.Resource
+import com.besirkaraoglu.locationsharingsampleii.util.Utils.ACTION_PROCESS_LOCATION
+import com.huawei.agconnect.auth.AGConnectAuth
 import com.huawei.hmf.tasks.OnFailureListener
 import com.huawei.hmf.tasks.OnSuccessListener
 import com.huawei.hms.location.*
@@ -22,9 +32,17 @@ import com.huawei.hms.maps.*
 import com.huawei.hms.maps.model.LatLng
 import com.huawei.hms.maps.model.Marker
 import com.huawei.hms.maps.model.MarkerOptions
+import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import kotlin.math.log
 
+@AndroidEntryPoint
 class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     val TAG = "MainActivity"
+
+    private val viewModel: MainViewModel by viewModels()
 
     private lateinit var buttonShare: Button
     private lateinit var buttonStop: Button
@@ -39,30 +57,73 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     private lateinit var mMapView: MapView
     private var mMarker: Marker? = null
     private lateinit var hMap: HuaweiMap
+    private val userMap: Map<String, HuaweiMap> = mutableMapOf()
+    private val user = AGConnectAuth.getInstance().currentUser
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        if (AGConnectAuth.getInstance().currentUser.uid == null){
+            Log.e(TAG, "onLocationResult: User is null")
+        }else{
+            Log.e(TAG, "onCreate: user is not null")
+        }
+        Log.d(TAG, "onCreate: ${AGConnectAuth.getInstance().currentUser.uid}")
 
         initListeners()
-
+        initCloudDB()
         initMapKit(savedInstanceState)
 
         checkPermissions()
         checkLocationSettings()
         initFusedLocation()
+
+    }
+
+    private fun initCloudDB(){
+        CloudDbWrapper.initialize(this){
+            if (it){
+                viewModel.userData.observe(this){ resource ->
+                    when(resource){
+                        is Resource.Loading -> {
+                            Log.d(TAG, "onCreate: Loading...")
+                        }
+                        is Resource.Empty -> {
+                            Log.d(TAG, "onCreate: Result is empty.")
+                            mMarker?.remove()
+                        }
+                        is Resource.Error -> {
+                            Log.e(TAG, "onCreate: Error! ${resource.exception.cause}")
+                        }
+                        is Resource.Success -> {
+                            Log.d(TAG, "onCreate: success called")
+                            val userList = resource.data
+                            if (userList.isEmpty()){
+                                mMarker?.remove()
+                            }
+                            for (i in userList){
+                                if (this::hMap.isInitialized)
+                                    addMarker(i.name
+                                        , LatLng(i.latitude,i.longitude)
+                                    )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private fun initListeners() {
         buttonShare = findViewById(R.id.buttonShare)
         buttonStop = findViewById(R.id.buttonStop)
-        etName = findViewById(R.id.etName)
 
         buttonShare.setOnClickListener {
             enableBackgroundNotification()
-            requestLocationUpdates()
+            requestLocationUpdatesWithIntent()
         }
         buttonStop.setOnClickListener {
+            stopRequestLocationUpdates()
             mMarker?.remove()
         }
     }
@@ -72,14 +133,13 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         hMap.animateCamera(cameraUpdate)
     }
 
-    fun addMarker(title: String, snippet: String, latLng: LatLng) {
+    fun addMarker(name: String, latLng: LatLng) {
         if (null != mMarker) {
             mMarker?.remove()
         }
         val options = MarkerOptions()
             .position(latLng)
-            .title("Hello Huawei Map")
-            .snippet("This is a snippet!")
+            .title(name)
         mMarker = hMap.addMarker(options)
     }
 
@@ -94,48 +154,84 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     private fun stopRequestLocationUpdates() {
-        fusedLocationProviderClient.disableBackgroundLocation()
+        removeLocationUpdatesWithIntent()
+        viewModel.deleteLocation(user.uid){
+            Log.d(TAG, "stopRequestLocationUpdates: Delete result $it")
+        }
     }
 
-    private fun requestLocationUpdates() {
-        val mLocationCallback: LocationCallback
-        mLocationCallback = object : LocationCallback() {
-            override fun onLocationResult(locationResult: LocationResult) {
-                Log.d(
-                    TAG,
-                    "onLocationResult: ${locationResult.lastLocation.latitude}, ${locationResult.lastLocation.longitude}"
-                )
-                Log.d(TAG, "onLocationResult: ${locationResult.locations}")
-                val latLng = LatLng(
-                    locationResult.lastLocation.latitude,
-                    locationResult.lastLocation.longitude
-                )
-                if (this@MainActivity::lastLocation.isInitialized && lastLocation != latLng) {
-                    lastLocation = latLng
-                    addMarker("", "", latLng)
-                    setCameraPos(latLng)
-                } else {
-                    lastLocation = latLng
-                    addMarker("", "", latLng)
-                    setCameraPos(latLng)
+    @OptIn(DelicateCoroutinesApi::class)
+    private fun requestLocationUpdatesWithIntent() {
+        GlobalScope.launch {
+            try {
+                val locationRequest = LocationRequest().apply {
+                    this.interval = 20000
+                    this.needAddress = true
+                    this.priority = LocationRequest.PRIORITY_HIGH_ACCURACY
                 }
+                fusedLocationProviderClient.requestLocationUpdates(
+                    locationRequest,
+                    getPendingIntent()
+                )
+                    .addOnSuccessListener {
+                        LocationLog.i(TAG, "requestLocationUpdatesWithIntent onSuccess")
+                    }
+                    .addOnFailureListener { e ->
+                        LocationLog.i(
+                            TAG,
+                            "requestLocationUpdatesWithIntent onFailure:" + e.message
+                        )
+                    }
+            } catch (e: Exception) {
+                LocationLog.e(TAG, "requestLocationUpdatesWithIntent exception:" + e.message)
             }
         }
-        fusedLocationProviderClient.requestLocationUpdates(
-            mLocationRequest,
-            mLocationCallback,
-            Looper.getMainLooper()
-        )
-            .addOnSuccessListener {
-                Log.d(TAG, "requestLocationUpdates: Success! $it")
-            }
-            .addOnFailureListener {
-                Log.d(TAG, "requestLocationUpdates: Failed! ${it.cause}, ${it.message}")
-            }
     }
 
+    @SuppressLint("WrongConstant")
+    private fun getPendingIntent(): PendingIntent? {
+        val intent = Intent(
+            this@MainActivity,
+            LSSReceiver::class.java
+        )
+        intent.action = ACTION_PROCESS_LOCATION
+        return if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.R) {
+            PendingIntent.getBroadcast(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT)
+        } else {
+            // For Android 12 or later devices, proactively configure the pendingIntent variability.
+            // The default value is PendingIntent.FLAG_MUTABLE. If compileSDKVersion is 30 or less, set this parameter
+            // to 1<<25.
+            PendingIntent.getBroadcast(
+                this,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or (1 shl 25)
+            )
+        }
+    }
+
+    @OptIn(DelicateCoroutinesApi::class)
+    private fun removeLocationUpdatesWithIntent() {
+        GlobalScope.launch {
+            try {
+                fusedLocationProviderClient.removeLocationUpdates(getPendingIntent())
+                    .addOnSuccessListener {
+                        LocationLog.i(TAG, "removeLocationUpdatesWithIntent onSuccess")
+                    }
+                    .addOnFailureListener { e ->
+                        LocationLog.i(TAG, "removeLocationUpdatesWithIntent onFailure:" + e.message)
+                    }
+                LocationLog.i(TAG, "removeLocationUpdatesWithIntent call finish")
+            } catch (e: java.lang.Exception) {
+                LocationLog.e(TAG, "removeLocationUpdatesWithIntent exception:" + e.message)
+            }
+        }
+    }
+
+
+
     private fun enableBackgroundNotification() {
-        var notificationId = 1
+        val notificationId = 1
         builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager =
                 this.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
