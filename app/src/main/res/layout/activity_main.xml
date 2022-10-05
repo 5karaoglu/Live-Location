@@ -6,34 +6,55 @@
     android:layout_height="match_parent"
     tools:context=".ui.main.MainActivity">
 
-    <Button
-        android:id="@+id/buttonShare"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:text="SHARE"
-        app:layout_constraintBottom_toTopOf="@+id/mapview_mapviewdemo"
-        app:layout_constraintEnd_toStartOf="@+id/buttonStop"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <Button
-        android:id="@+id/buttonStop"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:text="STOP"
-        app:layout_constraintBottom_toTopOf="@+id/mapview_mapviewdemo"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
     <com.huawei.hms.maps.MapView
         android:id="@+id/mapview_mapviewdemo"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="80dp"
-        app:cameraTargetLat="48.893478"
-        app:cameraTargetLng="2.334595"
-        app:cameraZoom="10"
+        app:cameraTargetLat="39.925533"
+        app:cameraTargetLng="32.866287"
+        app:cameraZoom="5"
         tools:layout_editor_absoluteY="80dp" />
+
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/materialCardView"
+        android:layout_width="wrap_content"
+        android:layout_height="60dp"
+        android:layout_margin="8dp"
+        android:elevation="10dp"
+        app:cardCornerRadius="16dp"
+        app:layout_constraintBottom_toTopOf="@+id/textView2"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/tbLocation"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_margin="8dp"
+            android:background="@android:color/transparent"
+            android:textOff="@string/stop"
+            android:textOn="@string/start"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:thumbTint="@color/switch_thumb_selector"
+            app:trackTint="@color/togglebutton_text_color_selector"
+            app:useMaterialThemeColors="false" />
+    </com.google.android.material.card.MaterialCardView>
+
+    <TextView
+        android:id="@+id/textView2"
+        android:layout_width="0dp"
+        android:gravity="center"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:text="Location Sharing"
+        android:textColor="@color/black"
+        android:textStyle="bold"
+        android:textSize="12sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="@+id/materialCardView"
+        app:layout_constraintStart_toStartOf="@+id/materialCardView" />
+
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

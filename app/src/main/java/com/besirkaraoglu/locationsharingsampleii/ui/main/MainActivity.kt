@@ -16,7 +16,9 @@ import android.os.Looper
 import android.util.Log
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ToggleButton
 import androidx.activity.viewModels
+import androidx.appcompat.widget.SwitchCompat
 import androidx.core.app.ActivityCompat
 import com.besirkaraoglu.locationsharingsampleii.CloudDbWrapper
 import com.besirkaraoglu.locationsharingsampleii.R
@@ -24,6 +26,7 @@ import com.besirkaraoglu.locationsharingsampleii.data.LSSReceiver
 import com.besirkaraoglu.locationsharingsampleii.util.LocationLog
 import com.besirkaraoglu.locationsharingsampleii.util.Resource
 import com.besirkaraoglu.locationsharingsampleii.util.Utils.ACTION_PROCESS_LOCATION
+import com.google.android.material.switchmaterial.SwitchMaterial
 import com.huawei.agconnect.auth.AGConnectAuth
 import com.huawei.hmf.tasks.OnFailureListener
 import com.huawei.hmf.tasks.OnSuccessListener
@@ -44,9 +47,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private val viewModel: MainViewModel by viewModels()
 
-    private lateinit var buttonShare: Button
-    private lateinit var buttonStop: Button
-    private lateinit var etName: EditText
+    private lateinit var switchLocation: SwitchMaterial
 
     private lateinit var mLocationRequest: LocationRequest
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
@@ -63,9 +64,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        if (AGConnectAuth.getInstance().currentUser.uid == null){
+        if (AGConnectAuth.getInstance().currentUser.uid == null) {
             Log.e(TAG, "onLocationResult: User is null")
-        }else{
+        } else {
             Log.e(TAG, "onCreate: user is not null")
         }
         Log.d(TAG, "onCreate: ${AGConnectAuth.getInstance().currentUser.uid}")
@@ -80,11 +81,11 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     }
 
-    private fun initCloudDB(){
-        CloudDbWrapper.initialize(this){
-            if (it){
-                viewModel.userData.observe(this){ resource ->
-                    when(resource){
+    private fun initCloudDB() {
+        CloudDbWrapper.initialize(this) {
+            if (it) {
+                viewModel.userData.observe(this) { resource ->
+                    when (resource) {
                         is Resource.Loading -> {
                             Log.d(TAG, "onCreate: Loading...")
                         }
@@ -97,15 +98,14 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                         }
                         is Resource.Success -> {
                             Log.d(TAG, "onCreate: success called")
-                            val userList = resource.data
-                            if (userList.isEmpty()){
-                                mMarker?.remove()
-                            }
-                            for (i in userList){
-                                if (this::hMap.isInitialized)
-                                    addMarker(i.name
-                                        , LatLng(i.latitude,i.longitude)
+                            if (this::hMap.isInitialized) {
+                                clearMap()
+                                val userList = resource.data
+                                for (i in userList) {
+                                    addMarker(
+                                        i.name, LatLng(i.latitude, i.longitude)
                                     )
+                                }
                             }
                         }
                     }
@@ -114,17 +114,20 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         }
     }
 
-    private fun initListeners() {
-        buttonShare = findViewById(R.id.buttonShare)
-        buttonStop = findViewById(R.id.buttonStop)
+    private fun clearMap() {
+        hMap.clear()
+    }
 
-        buttonShare.setOnClickListener {
-            enableBackgroundNotification()
-            requestLocationUpdatesWithIntent()
-        }
-        buttonStop.setOnClickListener {
-            stopRequestLocationUpdates()
-            mMarker?.remove()
+    private fun initListeners() {
+        switchLocation = findViewById(R.id.tbLocation)
+
+        switchLocation.setOnCheckedChangeListener { compoundButton, isChecked ->
+            if (isChecked){
+                enableBackgroundNotification()
+                requestLocationUpdatesWithIntent()
+            }else{
+                stopRequestLocationUpdates()
+            }
         }
     }
 
@@ -134,13 +137,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     }
 
     fun addMarker(name: String, latLng: LatLng) {
-        if (null != mMarker) {
-            mMarker?.remove()
-        }
         val options = MarkerOptions()
             .position(latLng)
             .title(name)
-        mMarker = hMap.addMarker(options)
+        hMap.addMarker(options)
     }
 
     private fun initMapKit(savedInstanceState: Bundle?) {
@@ -155,7 +155,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
 
     private fun stopRequestLocationUpdates() {
         removeLocationUpdatesWithIntent()
-        viewModel.deleteLocation(user.uid){
+        viewModel.deleteLocation(user.uid) {
             Log.d(TAG, "stopRequestLocationUpdates: Delete result $it")
         }
     }
@@ -227,7 +227,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
             }
         }
     }
-
 
 
     private fun enableBackgroundNotification() {
