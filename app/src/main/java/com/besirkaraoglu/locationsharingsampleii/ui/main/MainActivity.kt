@@ -16,16 +16,23 @@ import android.os.Looper
 import android.util.Log
 import android.widget.Button
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.ToggleButton
 import androidx.activity.viewModels
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.app.ActivityCompat
+import androidx.core.view.isVisible
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.besirkaraoglu.locationsharingsampleii.CloudDbWrapper
 import com.besirkaraoglu.locationsharingsampleii.R
 import com.besirkaraoglu.locationsharingsampleii.data.LSSReceiver
+import com.besirkaraoglu.locationsharingsampleii.model.Users
 import com.besirkaraoglu.locationsharingsampleii.util.LocationLog
 import com.besirkaraoglu.locationsharingsampleii.util.Resource
 import com.besirkaraoglu.locationsharingsampleii.util.Utils.ACTION_PROCESS_LOCATION
+import com.besirkaraoglu.locationsharingsampleii.util.showToastLong
+import com.besirkaraoglu.locationsharingsampleii.util.showToastShort
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.huawei.agconnect.auth.AGConnectAuth
 import com.huawei.hmf.tasks.OnFailureListener
@@ -42,12 +49,14 @@ import kotlinx.coroutines.launch
 import kotlin.math.log
 
 @AndroidEntryPoint
-class MainActivity : AppCompatActivity(), OnMapReadyCallback {
+class MainActivity : AppCompatActivity(), OnMapReadyCallback, UsersAdapter.OnItemClickListener {
     val TAG = "MainActivity"
 
     private val viewModel: MainViewModel by viewModels()
 
     private lateinit var switchLocation: SwitchMaterial
+    private lateinit var usersAdapter: UsersAdapter
+    private lateinit var tvRvWarning: TextView
 
     private lateinit var mLocationRequest: LocationRequest
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
@@ -64,13 +73,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        if (AGConnectAuth.getInstance().currentUser.uid == null) {
-            Log.e(TAG, "onLocationResult: User is null")
-        } else {
-            Log.e(TAG, "onCreate: user is not null")
-        }
-        Log.d(TAG, "onCreate: ${AGConnectAuth.getInstance().currentUser.uid}")
 
+        initRecyclerView()
         initListeners()
         initCloudDB()
         initMapKit(savedInstanceState)
@@ -78,7 +82,17 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         checkPermissions()
         checkLocationSettings()
         initFusedLocation()
+    }
 
+    private fun initRecyclerView(){
+        tvRvWarning = findViewById(R.id.tvRvWarning)
+        usersAdapter = UsersAdapter(this)
+        val rv = findViewById<RecyclerView>(R.id.rvUsers)
+        with(rv){
+            layoutManager = LinearLayoutManager(this@MainActivity,
+                LinearLayoutManager.HORIZONTAL,false)
+            adapter = usersAdapter
+        }
     }
 
     private fun initCloudDB() {
@@ -101,6 +115,8 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
                             if (this::hMap.isInitialized) {
                                 clearMap()
                                 val userList = resource.data
+                                tvRvWarning.isVisible = userList.isEmpty()
+                                usersAdapter.setUserList(userList)
                                 for (i in userList) {
                                     addMarker(
                                         i.name, LatLng(i.latitude, i.longitude)
@@ -136,7 +152,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
         hMap.animateCamera(cameraUpdate)
     }
 
-    fun addMarker(name: String, latLng: LatLng) {
+    private fun addMarker(name: String, latLng: LatLng) {
         val options = MarkerOptions()
             .position(latLng)
             .title(name)
@@ -367,5 +383,9 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback {
     override fun onLowMemory() {
         super.onLowMemory()
         mMapView.onLowMemory()
+    }
+
+    override fun onItemClicked(users: Users) {
+        showToastLong(this,"Sen biraz zekisin galiba.")
     }
 }

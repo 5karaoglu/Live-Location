@@ -22,8 +22,6 @@ import com.huawei.hms.location.LocationResult
 class LSSReceiver: BroadcastReceiver() {
     val TAG = "BroadcastReceiver"
 
-    private val mData: MutableLiveData<List<Users>> = MutableLiveData<List<Users>>()
-
     override fun onReceive(context: Context?, intent: Intent?) {
         if (intent != null) {
             val action = intent.action
@@ -68,6 +66,7 @@ class LSSReceiver: BroadcastReceiver() {
                             user.isActive = true
                             user.latitude = locations.last().latitude
                             user.longitude = locations.last().longitude
+                            user.photoUrl = cUser.photoUrl
 
                             CloudDbWrapper.upsertUser(user){
                                 Log.d(TAG, "onReceive: Result $it")

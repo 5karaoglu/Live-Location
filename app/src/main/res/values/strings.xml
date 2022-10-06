@@ -5,4 +5,5 @@
     <string name="stop">STOPPED</string>
 
     <string name="request_code_invalid">Request code is invalid!</string>
+    <string name="location_is_not_enabled">Location is not enabled.</string>
 </resources>

@@ -15,7 +15,7 @@ import java.util.Date;
 /**
  * Definition of ObjectType Users.
  *
- * @since 2022-09-29
+ * @since 2022-10-06
  */
 @PrimaryKeys({"uid"})
 public final class Users extends CloudDBZoneObject {
@@ -32,6 +32,8 @@ public final class Users extends CloudDBZoneObject {
     @NotNull
     @DefaultValue(booleanValue = false)
     private Boolean isActive;
+
+    private String photoUrl;
 
     public Users() {
         super(Users.class);
@@ -77,6 +79,14 @@ public final class Users extends CloudDBZoneObject {
 
     public Boolean getIsActive() {
         return isActive;
+    }
+
+    public void setPhotoUrl(String photoUrl) {
+        this.photoUrl = photoUrl;
+    }
+
+    public String getPhotoUrl() {
+        return photoUrl;
     }
 
 }
