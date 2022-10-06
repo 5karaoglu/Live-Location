@@ -5,28 +5,36 @@ import android.os.Bundle
 import android.os.PersistableBundle
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.Observer
 import com.besirkaraoglu.locationsharingsampleii.ui.main.MainActivity
 import com.besirkaraoglu.locationsharingsampleii.R
+import com.besirkaraoglu.locationsharingsampleii.util.HUAWEI_ID_SIGN_IN
+import com.besirkaraoglu.locationsharingsampleii.util.Resource
+import com.besirkaraoglu.locationsharingsampleii.util.showToastLong
 import com.huawei.agconnect.auth.AGConnectAuth
 import com.huawei.agconnect.auth.HwIdAuthProvider
 import com.huawei.hms.support.account.AccountAuthManager
 import com.huawei.hms.support.account.request.AccountAuthParams
 import com.huawei.hms.support.account.request.AccountAuthParamsHelper
 import com.huawei.hms.support.hwid.ui.HuaweiIdAuthButton
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class LoginActivity : AppCompatActivity() {
-    companion object {
-        const val SIGN_CODE = 212
-        const val TAG = "LoginActivity"
-    }
+        val TAG = "LoginActivity"
+
+    private val viewModel: LoginViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
-        initButton()
         isUserSignedIn()
+        initButton()
+
+        observeData()
     }
 
     private fun initButton() {
@@ -41,7 +49,7 @@ class LoginActivity : AppCompatActivity() {
                 val service = AccountAuthManager.getService(this@LoginActivity, authParams)
 
                 // Start the sign-in process when necessary. For example, you can create a button and call the following method in the button tap event:
-                startActivityForResult(service!!.signInIntent, SIGN_CODE)
+                startActivityForResult(service!!.signInIntent, HUAWEI_ID_SIGN_IN)
             }
         }
     }
@@ -54,32 +62,36 @@ class LoginActivity : AppCompatActivity() {
     }
 
 
+    @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == SIGN_CODE) {
-            val authAccountTask = AccountAuthManager.parseAuthResultFromIntent(data)
-            if (authAccountTask.isSuccessful) {
-                val authAccount = authAccountTask.result
-                signIn(authAccount.accessToken)
-                Log.i(TAG, "accessToken:" + authAccount.accessToken)
-            }
+        if (requestCode == HUAWEI_ID_SIGN_IN) {
+            viewModel.signInWithHuaweiId(requestCode, data)
         }
     }
 
-    private fun signIn(accessToken: String) {
-        val credential = HwIdAuthProvider.credentialWithToken(accessToken)
-        AGConnectAuth.getInstance().signIn(credential).addOnSuccessListener {
-            // onSuccess
-            val user = it.user
-            navigateToMain()
-        }.addOnFailureListener {
-            // onFail
-            Log.e(TAG, "signIn: ${it.message}")
-            Toast.makeText(this, "Login failed! Cause: ${it.message}", Toast.LENGTH_SHORT).show()
+    private fun observeData() {
+        viewModel.getSignInHuaweiIdLiveData().observe(this, Observer {
+            handleSignInReturn(it)
+        })
+    }
+
+    private fun handleSignInReturn(data: Resource<*>) {
+        when (data) {
+            is Resource.Success<*> -> {
+                navigateToMain()
+            }
+            is Resource.Error -> {
+                data.exception.message?.let { showToastLong(this, it) }
+            }
+            else -> {
+
+            }
         }
     }
 
     private fun navigateToMain() {
         startActivity(Intent(this, MainActivity::class.java))
+        finish()
     }
 }

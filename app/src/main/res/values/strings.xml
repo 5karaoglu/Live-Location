@@ -3,4 +3,6 @@
 
     <string name="start">SHARING</string>
     <string name="stop">STOPPED</string>
+
+    <string name="request_code_invalid">Request code is invalid!</string>
 </resources>
