@@ -62,12 +62,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, UsersAdapter.OnIte
     private lateinit var fusedLocationProviderClient: FusedLocationProviderClient
     private lateinit var builder: Notification.Builder
     private lateinit var mNotification: Notification
-    private lateinit var lastLocation: LatLng
 
     private lateinit var mMapView: MapView
     private var mMarker: Marker? = null
     private lateinit var hMap: HuaweiMap
-    private val userMap: Map<String, HuaweiMap> = mutableMapOf()
     private val user = AGConnectAuth.getInstance().currentUser
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -76,7 +74,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, UsersAdapter.OnIte
 
         initRecyclerView()
         initListeners()
-        initCloudDB()
+        initCloudDBAndListenData()
         initMapKit(savedInstanceState)
 
         checkPermissions()
@@ -95,7 +93,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, UsersAdapter.OnIte
         }
     }
 
-    private fun initCloudDB() {
+    private fun initCloudDBAndListenData() {
         CloudDbWrapper.initialize(this) {
             if (it) {
                 viewModel.userData.observe(this) { resource ->
@@ -115,6 +113,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, UsersAdapter.OnIte
                             if (this::hMap.isInitialized) {
                                 clearMap()
                                 val userList = resource.data
+                                userList.sortedByDescending { it1 -> it1.name }
                                 tvRvWarning.isVisible = userList.isEmpty()
                                 usersAdapter.setUserList(userList)
                                 for (i in userList) {
@@ -268,7 +267,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, UsersAdapter.OnIte
     }
 
     private fun checkLocationSettings() {
-        var settingsClient = LocationServices.getSettingsClient(this)
+        val settingsClient = LocationServices.getSettingsClient(this)
         val builder = LocationSettingsRequest.Builder()
         mLocationRequest = LocationRequest()
         builder.addLocationRequest(mLocationRequest)
@@ -386,6 +385,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, UsersAdapter.OnIte
     }
 
     override fun onItemClicked(users: Users) {
-        showToastLong(this,"Sen biraz zekisin galiba.")
+        setCameraPos(LatLng(users.latitude,users.longitude))
     }
 }
