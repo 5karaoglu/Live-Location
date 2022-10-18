@@ -87,7 +87,7 @@
         android:gravity="center"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
-        android:text="Location Sharing"
+        android:text="@string/location_sharing"
         android:textColor="@color/black"
         android:textStyle="bold"
         android:textSize="12sp"

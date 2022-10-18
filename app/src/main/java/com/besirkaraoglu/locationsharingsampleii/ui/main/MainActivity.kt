@@ -65,7 +65,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, UsersAdapter.OnIte
 
     private lateinit var mMapView: MapView
     private var mMarker: Marker? = null
-    private lateinit var hMap: HuaweiMap
+    private lateinit var hMap: HuaweiMap 
     private val user = AGConnectAuth.getInstance().currentUser
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -123,6 +123,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, UsersAdapter.OnIte
                                 }
                             }
                         }
+                        else -> {}
                     }
                 }
             }
@@ -135,7 +136,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, UsersAdapter.OnIte
 
     private fun initListeners() {
         switchLocation = findViewById(R.id.tbLocation)
-
         switchLocation.setOnCheckedChangeListener { compoundButton, isChecked ->
             if (isChecked){
                 enableBackgroundNotification()

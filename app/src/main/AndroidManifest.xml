@@ -53,7 +53,7 @@
             android:enabled="true"
             android:exported="true">
             <intent-filter>
-                <action android:name="com.huawei.hmssample.location.LocationBroadcastReceiver.ACTION_PROCESS_LOCATION" />
+                <action android:name="com.hms.locationkit.activity.location.ACTION_PROCESS_LOCATION" />
             </intent-filter>
         </receiver>
     </application>
