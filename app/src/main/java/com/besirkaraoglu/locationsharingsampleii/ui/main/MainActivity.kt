@@ -28,13 +28,11 @@ import com.besirkaraoglu.locationsharingsampleii.CloudDbWrapper
 import com.besirkaraoglu.locationsharingsampleii.R
 import com.besirkaraoglu.locationsharingsampleii.data.LSSReceiver
 import com.besirkaraoglu.locationsharingsampleii.model.Users
-import com.besirkaraoglu.locationsharingsampleii.util.LocationLog
-import com.besirkaraoglu.locationsharingsampleii.util.Resource
+import com.besirkaraoglu.locationsharingsampleii.util.*
 import com.besirkaraoglu.locationsharingsampleii.util.Utils.ACTION_PROCESS_LOCATION
-import com.besirkaraoglu.locationsharingsampleii.util.showToastLong
-import com.besirkaraoglu.locationsharingsampleii.util.showToastShort
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.huawei.agconnect.auth.AGConnectAuth
+import com.huawei.agconnect.remoteconfig.AGConnectConfig
 import com.huawei.hmf.tasks.OnFailureListener
 import com.huawei.hmf.tasks.OnSuccessListener
 import com.huawei.hms.location.*
@@ -68,9 +66,15 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, UsersAdapter.OnIte
     private lateinit var hMap: HuaweiMap 
     private val user = AGConnectAuth.getInstance().currentUser
 
+    private val config = AGConnectConfig.getInstance()
+    private var locationRequestInterval = config.getValueAsLong(LOCATION_REQUEST_INTERVAL_KEY)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        setConfigSettings()
+        fetchRemoteConfigValues()
 
         initRecyclerView()
         initListeners()
@@ -80,6 +84,23 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, UsersAdapter.OnIte
         checkPermissions()
         checkLocationSettings()
         initFusedLocation()
+    }
+
+    private fun setConfigSettings() {
+        val map = mutableMapOf<String, Any>()
+        map[LOCATION_REQUEST_INTERVAL_KEY] = DEFAULT_INTERVAL_VALUE
+        config.applyDefault(map)
+    }
+
+    private fun fetchRemoteConfigValues() {
+        config.fetch(0).addOnCompleteListener { task ->
+            if (task.isSuccessful)
+                Log.d(TAG, "fetchRemoteConfigValues: Task is successful.")
+            else
+                Log.e(TAG, "fetchRemoteConfigValues: Task failed! Cause: ${task.exception?.cause}")
+            config.apply(task.result)
+            locationRequestInterval = config.getValueAsLong(LOCATION_REQUEST_INTERVAL_KEY)
+        }
     }
 
     private fun initRecyclerView(){
@@ -180,7 +201,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, UsersAdapter.OnIte
         GlobalScope.launch {
             try {
                 val locationRequest = LocationRequest().apply {
-                    this.interval = 20000
+                    this.interval = locationRequestInterval
                     this.needAddress = true
                     this.priority = LocationRequest.PRIORITY_HIGH_ACCURACY
                 }

@@ -93,4 +93,7 @@ dependencies {
     //Glide
     implementation 'com.github.bumptech.glide:glide:4.14.1'
     annotationProcessor 'com.github.bumptech.glide:compiler:4.14.1'
+
+    //Remote Config
+    implementation 'com.huawei.agconnect:agconnect-remoteconfig-ktx:1.7.2.300'
 }
