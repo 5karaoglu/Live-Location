@@ -28,12 +28,12 @@ import com.besirkaraoglu.locationsharingsampleii.CloudDbWrapper
 import com.besirkaraoglu.locationsharingsampleii.R
 import com.besirkaraoglu.locationsharingsampleii.data.LSSReceiver
 import com.besirkaraoglu.locationsharingsampleii.model.Users
-import com.besirkaraoglu.locationsharingsampleii.util.LocationLog
-import com.besirkaraoglu.locationsharingsampleii.util.Resource
+import com.besirkaraoglu.locationsharingsampleii.util.*
 import com.besirkaraoglu.locationsharingsampleii.util.Utils.ACTION_PROCESS_LOCATION
-import com.besirkaraoglu.locationsharingsampleii.util.showToastLong
-import com.besirkaraoglu.locationsharingsampleii.util.showToastShort
 import com.google.android.material.switchmaterial.SwitchMaterial
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.remoteconfig.ktx.remoteConfig
+import com.google.firebase.remoteconfig.ktx.remoteConfigSettings
 import com.huawei.agconnect.auth.AGConnectAuth
 import com.huawei.hmf.tasks.OnFailureListener
 import com.huawei.hmf.tasks.OnSuccessListener
@@ -65,12 +65,19 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, UsersAdapter.OnIte
 
     private lateinit var mMapView: MapView
     private var mMarker: Marker? = null
-    private lateinit var hMap: HuaweiMap 
+    private lateinit var hMap: HuaweiMap
     private val user = AGConnectAuth.getInstance().currentUser
+
+    private val config = Firebase.remoteConfig
+
+    private var locationRequestInterval = config.getLong(LOCATION_REQUEST_INTERVAL_KEY)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        setConfigSettings()
+        fetchRemoteConfigValues()
 
         initRecyclerView()
         initListeners()
@@ -82,13 +89,36 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, UsersAdapter.OnIte
         initFusedLocation()
     }
 
-    private fun initRecyclerView(){
+    private fun setConfigSettings() {
+        val map = mutableMapOf<String, Any>()
+        map[LOCATION_REQUEST_INTERVAL_KEY] = DEFAULT_INTERVAL_VALUE
+        config.setDefaultsAsync(map)
+        val configSettings = remoteConfigSettings {
+            minimumFetchIntervalInSeconds = 10
+        }
+        config.setConfigSettingsAsync(configSettings)
+    }
+
+    private fun fetchRemoteConfigValues() {
+        config.fetchAndActivate()
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful)
+                    Log.d(TAG, "fetchRemoteConfigValues: Task is successful.")
+                else
+                    Log.e(TAG, "fetchRemoteConfigValues: Task failed! Cause: ${task.exception?.cause}")
+                locationRequestInterval = config.getLong(LOCATION_REQUEST_INTERVAL_KEY)
+            }
+    }
+
+    private fun initRecyclerView() {
         tvRvWarning = findViewById(R.id.tvRvWarning)
         usersAdapter = UsersAdapter(this)
         val rv = findViewById<RecyclerView>(R.id.rvUsers)
-        with(rv){
-            layoutManager = LinearLayoutManager(this@MainActivity,
-                LinearLayoutManager.HORIZONTAL,false)
+        with(rv) {
+            layoutManager = LinearLayoutManager(
+                this@MainActivity,
+                LinearLayoutManager.HORIZONTAL, false
+            )
             adapter = usersAdapter
         }
     }
@@ -137,10 +167,10 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, UsersAdapter.OnIte
     private fun initListeners() {
         switchLocation = findViewById(R.id.tbLocation)
         switchLocation.setOnCheckedChangeListener { compoundButton, isChecked ->
-            if (isChecked){
+            if (isChecked) {
                 enableBackgroundNotification()
                 requestLocationUpdatesWithIntent()
-            }else{
+            } else {
                 stopRequestLocationUpdates()
             }
         }
@@ -180,7 +210,7 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, UsersAdapter.OnIte
         GlobalScope.launch {
             try {
                 val locationRequest = LocationRequest().apply {
-                    this.interval = 20000
+                    this.interval = locationRequestInterval
                     this.needAddress = true
                     this.priority = LocationRequest.PRIORITY_HIGH_ACCURACY
                 }
@@ -385,6 +415,6 @@ class MainActivity : AppCompatActivity(), OnMapReadyCallback, UsersAdapter.OnIte
     }
 
     override fun onItemClicked(users: Users) {
-        setCameraPos(LatLng(users.latitude,users.longitude))
+        setCameraPos(LatLng(users.latitude, users.longitude))
     }
 }
